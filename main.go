@@ -5,6 +5,8 @@ import (
 	"os"
 	"strconv"
 	"github.com/therecipe/qt/core"
+	"github.com/d1slike/qtlab/form"
+	"github.com/jinzhu/gorm"
 )
 
 var (
@@ -25,7 +27,7 @@ func main() {
 	// Create main window
 	window := widgets.NewQMainWindow(nil, 0)
 	window.SetWindowTitle("Qt Lab")
-	window.SetMinimumSize2(800, 800)
+	window.SetMinimumSize2(1000, 800)
 
 	// Create main layout
 	layout := widgets.NewQVBoxLayout()
@@ -60,13 +62,47 @@ func makeClinicWidget() *widgets.QWidget {
 	clinicLayout := widgets.NewQVBoxLayout()
 
 	addClinicButton := widgets.NewQPushButton2("Добавить", nil)
+	addClinicButton.ConnectClicked(func(c bool) {
+		fields := []form.Field{
+			{Name: "name", Label: "Название", Type: form.StringType, Required: true},
+			{Name: "address", Label: "Адрес", Type: form.StringType},
+			{Name: "number", Label: "Контактный номер", Type: form.StringType},
+			{Name: "email", Label: "E-mail", Type: form.StringType}}
+		form.ShowForm(fields, func(result map[string]interface{}) {
+			clinic := Clinic{Name: result["name"].(string)}
+			address, hasAddress := result["address"]
+			if hasAddress {
+				clinic.Address = address.(string)
+			}
+			number, hasNumber := result["number"]
+			if hasNumber {
+				clinic.Number = number.(string)
+			}
+			email, hasEmail := result["email"]
+			if hasEmail {
+				clinic.Email = email.(string)
+			}
+			Db.Create(&clinic)
+			refreshClinicTable()
+		}, "Добавить", "Добавление клиники")
+	})
 
 	removeClinicButton = widgets.NewQPushButton2("Удалить", nil)
 	removeClinicButton.SetEnabled(false)
+	removeClinicButton.ConnectClicked(func(checked bool) {
+		index := clinicTable.CurrentRow()
+		if index >= 0 {
+			item := clinicTable.ItemAt2(index, 0)
+			id, _ := strconv.Atoi(item.Text())
+			Db.Delete(&Clinic{Model: gorm.Model{ID: uint(id)}})
+			clinicTable.RemoveRow(index)
+			clinicTable.ClearSelection()
+		}
+	})
 
 	filterClinicButton := widgets.NewQPushButton2("Искать", nil)
 
-	cancelClinicFilterButton = widgets.NewQPushButton2("Отменить филтр", nil)
+	cancelClinicFilterButton = widgets.NewQPushButton2("Отменить фильтр", nil)
 	cancelClinicFilterButton.SetEnabled(false)
 
 	clinicButtonsLayout := widgets.NewQHBoxLayout();
@@ -76,9 +112,13 @@ func makeClinicWidget() *widgets.QWidget {
 	clinicButtonsLayout.AddWidget(cancelClinicFilterButton, 0, core.Qt__AlignCenter)
 
 	clinicTable = widgets.NewQTableWidget(nil)
-	clinicTable.SetColumnCount(4)
-	clinicTable.SetHorizontalHeaderLabels([]string{"Название", "Адресс", "Номер", "E-mail"})
+	clinicTable.SetColumnCount(5)
+	clinicTable.SetHorizontalHeaderLabels([]string{"ID", "Название", "Адресс", "Номер", "E-mail"})
 	clinicTable.SetShowGrid(true)
+	clinicTable.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
+	clinicTable.ConnectSelectRow(func(row int) {
+		removeClinicButton.SetEnabled(true)
+	})
 
 	clinicLayout.AddWidget(clinicTable, 0, 0)
 	clinicLayout.AddLayout(clinicButtonsLayout, 0)
@@ -107,8 +147,9 @@ func makeDoctorWidget() *widgets.QWidget {
 	doctorButtonsLayout.AddWidget(cancelDoctorFilterButton, 0, core.Qt__AlignCenter)
 
 	doctorTable = widgets.NewQTableWidget(nil)
-	doctorTable.SetColumnCount(4)
-	doctorTable.SetHorizontalHeaderLabels([]string{"ФИО", "Специальность", "Кабинет", "Клиника"})
+	doctorTable.SetColumnCount(5)
+	doctorTable.SetHorizontalHeaderLabels([]string{"ID", "ФИО", "Специальность", "Кабинет", "Клиника"})
+	clinicTable.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
 	doctorTable.SetShowGrid(true)
 
 	doctorLayout.AddWidget(doctorTable, 0, 0)
@@ -121,10 +162,11 @@ func refreshClinicTable() {
 	clearTable(clinicTable)
 	for _, c := range GetAllClinics(nil) {
 		clinicTable.InsertRow(0)
-		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(c.Name, 0))
-		clinicTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(c.Address, 0))
-		clinicTable.SetItem(0, 2, widgets.NewQTableWidgetItem2(c.Number, 0))
-		clinicTable.SetItem(0, 3, widgets.NewQTableWidgetItem2(c.Email, 0))
+		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(c.ID)), 0))
+		clinicTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(c.Name, 0))
+		clinicTable.SetItem(0, 2, widgets.NewQTableWidgetItem2(c.Address, 0))
+		clinicTable.SetItem(0, 3, widgets.NewQTableWidgetItem2(c.Number, 0))
+		clinicTable.SetItem(0, 4, widgets.NewQTableWidgetItem2(c.Email, 0))
 	}
 }
 
@@ -132,10 +174,11 @@ func refreshDoctorsTable() {
 	clearTable(doctorTable)
 	for _, doctor := range GetAllDoctors(nil) {
 		doctorTable.InsertRow(0)
-		doctorTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(doctor.Fio, 0))
-		doctorTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(doctor.Speciality, 0))
-		doctorTable.SetItem(0, 2, widgets.NewQTableWidgetItem2(strconv.Itoa(doctor.Cabinet), 0))
-		doctorTable.SetItem(0, 3, widgets.NewQTableWidgetItem2(doctor.Clinic.Name, 0))
+		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(doctor.ID)), 0))
+		doctorTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(doctor.Fio, 0))
+		doctorTable.SetItem(0, 2, widgets.NewQTableWidgetItem2(doctor.Speciality, 0))
+		doctorTable.SetItem(0, 3, widgets.NewQTableWidgetItem2(strconv.Itoa(doctor.Cabinet), 0))
+		doctorTable.SetItem(0, 4, widgets.NewQTableWidgetItem2(doctor.Clinic.Name, 0))
 	}
 }
 
