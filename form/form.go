@@ -4,6 +4,7 @@ import (
 	"github.com/therecipe/qt/widgets"
 	"github.com/therecipe/qt/gui"
 	"github.com/therecipe/qt/core"
+	"strings"
 	"strconv"
 )
 
@@ -21,8 +22,8 @@ type Field struct {
 	Options  map[string]interface{}
 }
 
-func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText string, title string) {
-	dialog := widgets.NewQDialog(nil, core.Qt__Dialog)
+func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText string, title string, parent widgets.QWidget_ITF) {
+	dialog := widgets.NewQDialog(parent, core.Qt__Dialog)
 	layout := widgets.NewQVBoxLayout()
 	dialog.SetLayout(layout)
 	dialog.SetWindowTitle(title)
@@ -39,13 +40,17 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 		case ObjectType:
 			comboBox := widgets.NewQComboBox(nil)
 			if f.Options != nil {
-				for key, _ := range f.Options {
-					comboBox.AddItem(key, nil)
+				keys := make([]string, len(f.Options)+1)
+				keys[0] = " "
+				i := 1
+				for key := range f.Options {
+					keys[i] = key
+					i++
 				}
+				comboBox.AddItems(keys)
+				comboBox.SetCurrentIndex(0)
 			}
-			comboBox.ConnectCurrentIndexChanged2(func(text string) {
-				result[f.Name] = f.Options[text]
-			})
+			comboBox.ConnectCurrentIndexChanged2(onChangeObject(result, f))
 			if f.Required {
 				rx := core.NewQRegExp()
 				rx.SetPattern(".*")
@@ -56,16 +61,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 			editor := widgets.NewQLineEdit(nil)
 			editor.SetValidator(gui.NewQIntValidator2(-1000, 999999999, editor))
 			editor.SetPlaceholderText(f.Label)
-			editor.ConnectTextChanged(func(text string) {
-				if text == "" {
-					delete(result, f.Name)
-				} else {
-					v, err := strconv.Atoi(text)
-					if err == nil {
-						result[f.Name] = v
-					}
-				}
-			})
+			editor.ConnectTextChanged(onChangeInt(result, f))
 			if f.Required {
 				rx := core.NewQRegExp()
 				rx.SetPattern(".*")
@@ -75,7 +71,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 		case StringType:
 			editor := widgets.NewQLineEdit(nil)
 			editor.SetPlaceholderText(f.Label)
-			editor.ConnectTextChanged(onChange(result, f))
+			editor.ConnectTextChanged(onChangeText(result, f))
 			if f.Required {
 				rx := core.NewQRegExp()
 				rx.SetPattern(".*")
@@ -92,15 +88,38 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 		dialog.Accept()
 	})
 	layout.AddWidget(button, 0, core.Qt__AlignCenter)
-	dialog.Show()
+	dialog.Exec()
 }
 
-func onChange(result map[string]interface{}, f Field) func(string string) {
+func onChangeText(result map[string]interface{}, f Field) func(string string) {
+	return func(text string) {
+		if strings.TrimSpace(text) == "" {
+			delete(result, f.Name)
+		} else {
+			result[f.Name] = text
+		}
+	}
+}
+
+func onChangeObject(result map[string]interface{}, f Field) func(string string) {
+	return func(text string) {
+		if strings.TrimSpace(text) == "" {
+			delete(result, f.Name)
+		} else {
+			result[f.Name] = f.Options[text]
+		}
+	}
+}
+
+func onChangeInt(result map[string]interface{}, f Field) func(string string) {
 	return func(text string) {
 		if text == "" {
 			delete(result, f.Name)
 		} else {
-			result[f.Name] = text
+			v, err := strconv.Atoi(text)
+			if err == nil {
+				result[f.Name] = v
+			}
 		}
 	}
 }

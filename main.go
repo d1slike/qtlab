@@ -4,9 +4,10 @@ import (
 	"github.com/therecipe/qt/widgets"
 	"os"
 	"strconv"
-	"github.com/therecipe/qt/core"
 	"github.com/d1slike/qtlab/form"
+	"github.com/d1slike/qtlab/db"
 	"github.com/jinzhu/gorm"
+	"github.com/d1slike/qtlab/ui"
 )
 
 var (
@@ -18,6 +19,8 @@ var (
 
 	cancelDoctorFilterButton *widgets.QPushButton
 	cancelClinicFilterButton *widgets.QPushButton
+
+	window *widgets.QMainWindow
 )
 
 func main() {
@@ -25,7 +28,7 @@ func main() {
 	app := widgets.NewQApplication(len(os.Args), os.Args)
 
 	// Create main window
-	window := widgets.NewQMainWindow(nil, 0)
+	window = widgets.NewQMainWindow(nil, 0)
 	window.SetWindowTitle("Qt Lab")
 	window.SetMinimumSize2(1000, 800)
 
@@ -45,122 +48,118 @@ func main() {
 	// Set main widget as the central widget of the window
 	window.SetCentralWidget(mainWidget)
 
-	refreshClinicTable();
-	refreshDoctorsTable()
+	refreshClinicTable(db.GetAllClinics(nil))
+	refreshDoctorsTable(db.GetAllDoctors(nil))
 
 	// Show the window
 	window.Show()
 
-	defer Db.Close()
+	defer db.Db.Close()
 
 	// Execute app
 	app.Exec()
 }
 
 func makeClinicWidget() *widgets.QWidget {
-	clinicWidget := widgets.NewQWidget(nil, 0)
-	clinicLayout := widgets.NewQVBoxLayout()
-
-	addClinicButton := widgets.NewQPushButton2("Добавить", nil)
-	addClinicButton.ConnectClicked(func(c bool) {
-		fields := []form.Field{
-			{Name: "name", Label: "Название", Type: form.StringType, Required: true},
-			{Name: "address", Label: "Адрес", Type: form.StringType},
-			{Name: "number", Label: "Контактный номер", Type: form.StringType},
-			{Name: "email", Label: "E-mail", Type: form.StringType}}
-		form.ShowForm(fields, func(result map[string]interface{}) {
-			clinic := Clinic{Name: result["name"].(string)}
-			address, hasAddress := result["address"]
-			if hasAddress {
-				clinic.Address = address.(string)
-			}
-			number, hasNumber := result["number"]
-			if hasNumber {
-				clinic.Number = number.(string)
-			}
-			email, hasEmail := result["email"]
-			if hasEmail {
-				clinic.Email = email.(string)
-			}
-			Db.Create(&clinic)
-			refreshClinicTable()
-		}, "Добавить", "Добавление клиники")
-	})
-
-	removeClinicButton = widgets.NewQPushButton2("Удалить", nil)
-	removeClinicButton.SetEnabled(false)
-	removeClinicButton.ConnectClicked(func(checked bool) {
-		index := clinicTable.CurrentRow()
-		if index >= 0 {
-			item := clinicTable.ItemAt2(index, 0)
-			id, _ := strconv.Atoi(item.Text())
-			Db.Delete(&Clinic{Model: gorm.Model{ID: uint(id)}})
-			clinicTable.RemoveRow(index)
-			clinicTable.ClearSelection()
-		}
-	})
-
-	filterClinicButton := widgets.NewQPushButton2("Искать", nil)
-
-	cancelClinicFilterButton = widgets.NewQPushButton2("Отменить фильтр", nil)
-	cancelClinicFilterButton.SetEnabled(false)
-
-	clinicButtonsLayout := widgets.NewQHBoxLayout();
-	clinicButtonsLayout.AddWidget(addClinicButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(removeClinicButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(filterClinicButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(cancelClinicFilterButton, 0, core.Qt__AlignCenter)
-
 	clinicTable = widgets.NewQTableWidget(nil)
-	clinicTable.SetColumnCount(5)
-	clinicTable.SetHorizontalHeaderLabels([]string{"ID", "Название", "Адресс", "Номер", "E-mail"})
-	clinicTable.SetShowGrid(true)
-	clinicTable.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
-	clinicTable.ConnectSelectRow(func(row int) {
-		removeClinicButton.SetEnabled(true)
-	})
-
-	clinicLayout.AddWidget(clinicTable, 0, 0)
-	clinicLayout.AddLayout(clinicButtonsLayout, 0)
-	clinicWidget.SetLayout(clinicLayout)
-	return clinicWidget
+	cancelClinicFilterButton = widgets.NewQPushButton2("Отменить фильтр", nil)
+	removeClinicButton = widgets.NewQPushButton2("Удалить", nil)
+	return ui.MakeWidget(
+		removeClinicButton,
+		cancelClinicFilterButton,
+		clinicTable,
+		[]string{"ID", "Название", "Адресс", "Номер", "E-mail"},
+		func(c bool) {
+			fields := []form.Field{
+				{Name: "name", Label: "Название", Type: form.StringType, Required: true},
+				{Name: "address", Label: "Адрес", Type: form.StringType},
+				{Name: "number", Label: "Контактный номер", Type: form.StringType},
+				{Name: "email", Label: "E-mail", Type: form.StringType}}
+			form.ShowForm(fields, func(result map[string]interface{}) {
+				clinic := db.Clinic{Name: result["name"].(string)}
+				address, hasAddress := result["address"]
+				if hasAddress {
+					clinic.Address = address.(string)
+				}
+				number, hasNumber := result["number"]
+				if hasNumber {
+					clinic.Number = number.(string)
+				}
+				email, hasEmail := result["email"]
+				if hasEmail {
+					clinic.Email = email.(string)
+				}
+				db.Db.Create(&clinic)
+				refreshClinicTable(db.GetAllClinics(nil))
+			}, "Добавить", "Добавление клиники", window)
+		}, func(id uint) {
+			db.Db.Delete(&db.Clinic{Model: gorm.Model{ID: id}})
+		}, func(checked bool) {
+			fields := []form.Field{
+				{Name: "name", Type: form.StringType, Label: "Название"},
+				{Name: "address", Type: form.StringType, Label: "Адрес"},
+				{Name: "number", Type: form.StringType, Label: "Телефон"},
+				{Name: "email", Type: form.StringType, Label: "E-mail"}}
+			form.ShowForm(fields, func(filter map[string]interface{}) {
+				refreshClinicTable(db.GetAllClinics(filter))
+				cancelClinicFilterButton.SetEnabled(true)
+			}, "Искать", "Поиск клиник", window)
+		}, func() {
+			refreshClinicTable(db.GetAllClinics(nil))
+		})
 }
 
 func makeDoctorWidget() *widgets.QWidget {
-	doctorWidget := widgets.NewQWidget(nil, 0)
-	doctorLayout := widgets.NewQVBoxLayout()
-
-	addDoctorButton := widgets.NewQPushButton2("Добавить", nil)
-
-	removeDoctorButton = widgets.NewQPushButton2("Удалить", nil)
-	removeDoctorButton.SetEnabled(false)
-
-	filterDoctorButton := widgets.NewQPushButton2("Искать", nil)
-
-	cancelDoctorFilterButton = widgets.NewQPushButton2("Отменить фильтр", nil)
-	cancelDoctorFilterButton.SetEnabled(false)
-
-	doctorButtonsLayout := widgets.NewQHBoxLayout();
-	doctorButtonsLayout.AddWidget(addDoctorButton, 0, core.Qt__AlignCenter)
-	doctorButtonsLayout.AddWidget(removeDoctorButton, 0, core.Qt__AlignCenter)
-	doctorButtonsLayout.AddWidget(filterDoctorButton, 0, core.Qt__AlignCenter)
-	doctorButtonsLayout.AddWidget(cancelDoctorFilterButton, 0, core.Qt__AlignCenter)
-
 	doctorTable = widgets.NewQTableWidget(nil)
-	doctorTable.SetColumnCount(5)
-	doctorTable.SetHorizontalHeaderLabels([]string{"ID", "ФИО", "Специальность", "Кабинет", "Клиника"})
-	clinicTable.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
-	doctorTable.SetShowGrid(true)
-
-	doctorLayout.AddWidget(doctorTable, 0, 0)
-	doctorLayout.AddLayout(doctorButtonsLayout, 0)
-	doctorWidget.SetLayout(doctorLayout)
-	return doctorWidget
+	cancelDoctorFilterButton = widgets.NewQPushButton2("Отменить фильтр", nil)
+	removeDoctorButton = widgets.NewQPushButton2("Удалить", nil)
+	return ui.MakeWidget(
+		removeDoctorButton,
+		cancelDoctorFilterButton,
+		doctorTable,
+		[]string{"ID", "ФИО", "Специальность", "Кабинет", "Клиника"},
+		func(c bool) {
+			clinicOptions := make(map[string]interface{})
+			for _, clinic := range db.GetAllClinics(nil) {
+				clinicOptions[clinic.Name] = clinic.ID
+			}
+			fields := []form.Field{
+				{Name: "fio", Label: "ФИО", Type: form.StringType, Required: true},
+				{Name: "speciality", Label: "Специальность", Type: form.ObjectType, Required: true, Options: db.Specialities},
+				{Name: "cabinet", Label: "Кабинет", Type: form.IntegerType, Required: true},
+				{Name: "clinic", Label: "Клиника", Type: form.ObjectType, Required: true, Options: clinicOptions}}
+			form.ShowForm(fields, func(result map[string]interface{}) {
+				doctor := db.Doctor{Fio: result["fio"].(string),
+					Speciality: result["speciality"].(string),
+					Cabinet: result["cabinet"].(int),
+					ClinicID: result["clinic"].(uint)}
+				db.Db.Create(&doctor)
+				refreshDoctorsTable(db.GetAllDoctors(nil))
+			}, "Добавить", "Добавление клиники", window)
+		}, func(id uint) {
+			db.Db.Delete(&db.Doctor{Model: gorm.Model{ID: id}})
+		}, func(checked bool) {
+			clinicOptions := make(map[string]interface{})
+			for _, clinic := range db.GetAllClinics(nil) {
+				clinicOptions[clinic.Name] = db.FK{Key: clinic.ID}
+			}
+			fields := []form.Field{
+				{Name: "fio", Type: form.StringType, Label: "ФИО",},
+				{Name: "speciality", Type: form.ObjectType, Label: "Специальность", Options: db.Specialities},
+				{Name: "cabinet", Type: form.IntegerType, Label: "Кабинет"},
+				{Name: "clinic_id", Type: form.ObjectType, Label: "Клиника", Options: clinicOptions}}
+			form.ShowForm(fields, func(filter map[string]interface{}) {
+				refreshDoctorsTable(db.GetAllDoctors(filter))
+				cancelDoctorFilterButton.SetEnabled(true)
+			}, "Искать", "Поиск врачей", window)
+		}, func() {
+			refreshDoctorsTable(db.GetAllDoctors(nil))
+		})
 }
 
-func refreshClinicTable() {
+func refreshClinicTable(clinics []db.Clinic) {
 	clearTable(clinicTable)
-	for _, c := range GetAllClinics(nil) {
+	for _, c := range clinics {
 		clinicTable.InsertRow(0)
 		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(c.ID)), 0))
 		clinicTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(c.Name, 0))
@@ -170,9 +169,9 @@ func refreshClinicTable() {
 	}
 }
 
-func refreshDoctorsTable() {
+func refreshDoctorsTable(doctors []db.Doctor) {
 	clearTable(doctorTable)
-	for _, doctor := range GetAllDoctors(nil) {
+	for _, doctor := range doctors {
 		doctorTable.InsertRow(0)
 		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(doctor.ID)), 0))
 		doctorTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(doctor.Fio, 0))
