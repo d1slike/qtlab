@@ -38,7 +38,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 		var field widgets.QWidget_ITF
 		switch f.Type {
 		case ObjectType:
-			comboBox := widgets.NewQComboBox(nil)
+			comboBox := widgets.NewQComboBox(dialog)
 			if f.Options != nil {
 				keys := make([]string, len(f.Options)+1)
 				keys[0] = " "
@@ -58,7 +58,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 			}
 			field = comboBox
 		case IntegerType:
-			editor := widgets.NewQLineEdit(nil)
+			editor := widgets.NewQLineEdit(dialog)
 			editor.SetValidator(gui.NewQIntValidator2(-1000, 999999999, editor))
 			editor.SetPlaceholderText(f.Label)
 			editor.ConnectTextChanged(onChangeInt(result, f))
@@ -69,7 +69,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 			}
 			field = editor
 		case StringType:
-			editor := widgets.NewQLineEdit(nil)
+			editor := widgets.NewQLineEdit(dialog)
 			editor.SetPlaceholderText(f.Label)
 			editor.ConnectTextChanged(onChangeText(result, f))
 			if f.Required {
@@ -83,7 +83,7 @@ func ShowForm(fields []Field, onClose func(map[string]interface{}), buttonText s
 			layout.AddWidget(field, 0, 0)
 		}
 	}
-	button := widgets.NewQPushButton2(buttonText, nil)
+	button := widgets.NewQPushButton2(buttonText, dialog)
 	button.ConnectClicked(func(c bool) {
 		dialog.Accept()
 	})

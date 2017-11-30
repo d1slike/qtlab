@@ -16,11 +16,11 @@ func MakeWidget(
 	onClickFilter func(bool),
 	onClickCancelFilter func()) *widgets.QWidget {
 
-	clinicWidget := widgets.NewQWidget(nil, 0)
-	clinicLayout := widgets.NewQVBoxLayout()
+	widget := widgets.NewQWidget(nil, 0)
+	layout := widgets.NewQVBoxLayout()
 
-	addClinicButton := widgets.NewQPushButton2("Добавить", nil)
-	addClinicButton.ConnectClicked(onClinicAdd)
+	addButton := widgets.NewQPushButton2("Добавить", nil)
+	addButton.ConnectClicked(onClinicAdd)
 
 	removeButton.SetEnabled(false)
 	removeButton.ConnectClicked(func(checked bool) {
@@ -34,8 +34,8 @@ func MakeWidget(
 		}
 	})
 
-	filterClinicButton := widgets.NewQPushButton2("Искать", nil)
-	filterClinicButton.ConnectClicked(onClickFilter)
+	filterButton := widgets.NewQPushButton2("Искать", nil)
+	filterButton.ConnectClicked(onClickFilter)
 
 	cancelFilterButton.SetEnabled(false)
 	cancelFilterButton.ConnectClicked(func(checked bool) {
@@ -43,11 +43,11 @@ func MakeWidget(
 		cancelFilterButton.SetEnabled(false)
 	})
 
-	clinicButtonsLayout := widgets.NewQHBoxLayout();
-	clinicButtonsLayout.AddWidget(addClinicButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(removeButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(filterClinicButton, 0, core.Qt__AlignCenter)
-	clinicButtonsLayout.AddWidget(cancelFilterButton, 0, core.Qt__AlignCenter)
+	buttonsLayout := widgets.NewQHBoxLayout();
+	buttonsLayout.AddWidget(addButton, 0, core.Qt__AlignCenter)
+	buttonsLayout.AddWidget(removeButton, 0, core.Qt__AlignCenter)
+	buttonsLayout.AddWidget(filterButton, 0, core.Qt__AlignCenter)
+	buttonsLayout.AddWidget(cancelFilterButton, 0, core.Qt__AlignCenter)
 
 	table.SetColumnCount(len(header))
 	table.SetHorizontalHeaderLabels(header)
@@ -57,8 +57,8 @@ func MakeWidget(
 		removeButton.SetEnabled(true)
 	})
 
-	clinicLayout.AddWidget(table, 0, 0)
-	clinicLayout.AddLayout(clinicButtonsLayout, 0)
-	clinicWidget.SetLayout(clinicLayout)
-	return clinicWidget
+	layout.AddWidget(table, 0, 0)
+	layout.AddLayout(buttonsLayout, 0)
+	widget.SetLayout(layout)
+	return widget
 }
