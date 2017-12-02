@@ -31,6 +31,7 @@ func MakeWidget(
 			onDelete(uint(id))
 			table.RemoveRow(index)
 			table.ClearSelection()
+			removeButton.SetEnabled(false)
 		}
 	})
 
@@ -53,7 +54,7 @@ func MakeWidget(
 	table.SetHorizontalHeaderLabels(header)
 	table.SetShowGrid(true)
 	table.SetEditTriggers(widgets.QAbstractItemView__NoEditTriggers)
-	table.ConnectSelectRow(func(row int) {
+	table.ConnectCellClicked(func(row int, col int) {
 		removeButton.SetEnabled(true)
 	})
 

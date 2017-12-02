@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"github.com/d1slike/qtlab/form"
 	"github.com/d1slike/qtlab/db"
-	"github.com/jinzhu/gorm"
 	"github.com/d1slike/qtlab/ui"
 )
 
@@ -30,7 +29,14 @@ func main() {
 	// Create main window
 	window = widgets.NewQMainWindow(nil, 0)
 	window.SetWindowTitle("Qt Lab")
-	window.SetMinimumSize2(1000, 800)
+
+	cfg := db.Config{}
+	db.Db.First(&cfg)
+	if cfg.ID == 0 {
+		cfg.Width = 1000
+		cfg.Height = 800
+	}
+	window.Resize2(cfg.Width, cfg.Height)
 
 	// Create main layout
 	layout := widgets.NewQVBoxLayout()
@@ -58,6 +64,12 @@ func main() {
 
 	// Execute app
 	app.Exec()
+
+	newCfg := db.Config{}
+	db.Db.First(&newCfg)
+	newCfg.Width = window.Width()
+	newCfg.Height = window.Height()
+	db.Db.Save(&newCfg)
 }
 
 func makeClinicWidget() *widgets.QWidget {
@@ -93,7 +105,7 @@ func makeClinicWidget() *widgets.QWidget {
 				refreshClinicTable(db.GetAllClinics(nil))
 			}, "Добавить", "Добавление клиники", window)
 		}, func(id uint) {
-			db.Db.Delete(&db.Clinic{Model: gorm.Model{ID: id}})
+			db.Db.Delete(&db.Clinic{ID: id})
 		}, func(checked bool) {
 			fields := []form.Field{
 				{Name: "name", Type: form.StringType, Label: "Название"},
@@ -135,9 +147,9 @@ func makeDoctorWidget() *widgets.QWidget {
 					ClinicID: result["clinic"].(uint)}
 				db.Db.Create(&doctor)
 				refreshDoctorsTable(db.GetAllDoctors(nil))
-			}, "Добавить", "Добавление клиники", window)
+			}, "Добавить", "Добавление врача", window)
 		}, func(id uint) {
-			db.Db.Delete(&db.Doctor{Model: gorm.Model{ID: id}})
+			db.Db.Delete(&db.Doctor{ID: id})
 		}, func(checked bool) {
 			clinicOptions := make(map[string]interface{})
 			for _, clinic := range db.GetAllClinics(nil) {
@@ -173,7 +185,7 @@ func refreshDoctorsTable(doctors []db.Doctor) {
 	clearTable(doctorTable)
 	for _, doctor := range doctors {
 		doctorTable.InsertRow(0)
-		clinicTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(doctor.ID)), 0))
+		doctorTable.SetItem(0, 0, widgets.NewQTableWidgetItem2(strconv.Itoa(int(doctor.ID)), 0))
 		doctorTable.SetItem(0, 1, widgets.NewQTableWidgetItem2(doctor.Fio, 0))
 		doctorTable.SetItem(0, 2, widgets.NewQTableWidgetItem2(doctor.Speciality, 0))
 		doctorTable.SetItem(0, 3, widgets.NewQTableWidgetItem2(strconv.Itoa(doctor.Cabinet), 0))

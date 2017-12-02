@@ -12,7 +12,7 @@ var (
 )
 
 type Doctor struct {
-	gorm.Model
+	ID         uint
 	Fio        string
 	Speciality string
 	Cabinet    int
@@ -21,11 +21,17 @@ type Doctor struct {
 }
 
 type Clinic struct {
-	gorm.Model
+	ID      uint
 	Name    string
 	Address string
 	Number  string
 	Email   string
+}
+
+type Config struct {
+	ID     uint
+	Width  int
+	Height int
 }
 
 type FK struct {
@@ -56,7 +62,7 @@ func init() {
 	if err != nil {
 		log.Fatal("Could not connected to sqllite", err)
 	}
-	Db.AutoMigrate(&Clinic{}, &Doctor{})
+	Db.AutoMigrate(&Clinic{}, &Doctor{}, &Config{})
 }
 
 func GetAllClinics(filter map[string]interface{}) []Clinic {
